@@ -1398,5 +1398,135 @@ HookAddonOrVariable("BetterCharacterStats", function()
       SkinStatCompareFrame(frame)
     end
   end)
+  
+ HookAddonOrVariable("Outfitter", function()
+   if C.thirdparty.outfitter and C.thirdparty.outfitter.enable == "0" then return end
+  
+    local function UpdateQuickSlotItemRarity(btn)
+    if not btn or not btn.pfSkinned or not btn.backdrop then return end
+  
+    local bagIndex = btn:GetParent():GetID()
+    local slotIndex = btn:GetID()
+    local _, _, _, quality = GetContainerItemInfo(bagIndex, slotIndex)
+  
+    local er, eg, eb, ea = GetStringColor(pfUI_config.appearance.border.color)
+  
+    if quality and quality > 1 and ITEM_QUALITY_COLORS[quality] then
+      local c = ITEM_QUALITY_COLORS[quality]
+      btn.backdrop:SetBackdropBorderColor(c.r, c.g, c.b, 1)
+    else
+      btn.backdrop:SetBackdropBorderColor(er, eg, eb, ea)
+    end 
+  end
 
+  local function SkinQuickSlotItem(btn)
+    if not btn or btn.pfSkinned then return end
+  
+    local regions = {btn:GetRegions()}
+    local icon_texture = regions[1]
+  
+    for i, region in ipairs(regions) do
+      if i ~= 1 and region.SetTexture then
+        region:SetTexture(nil)
+      end
+    end
+  
+    local c1, c2 = btn:GetChildren()
+    if c2 then c2:Hide() end
+  
+    CreateBackdrop(btn)
+    btn.backdrop:SetPoint("TOPLEFT", btn, "TOPLEFT", 1, -1)
+    btn.backdrop:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -1, 1)
+  
+    if icon_texture then
+      icon_texture:ClearAllPoints()
+      icon_texture:SetDrawLayer("ARTWORK")
+      icon_texture:SetPoint("TOPLEFT", btn.backdrop, "TOPLEFT", 2, -2)
+      icon_texture:SetPoint("BOTTOMRIGHT", btn.backdrop, "BOTTOMRIGHT", -2, 2)
+      icon_texture:SetTexCoord(.08, .92, .08, .92)
+    end
+  
+    local _, class = UnitClass("player")
+    local color = RAID_CLASS_COLORS[class]
+    local cr, cg, cb = color.r, color.g, color.b
+    local rr, rg, rb, ra = GetStringColor(pfUI_config.appearance.border.color)
+  
+    HookScript(btn, "OnEnter", function()
+      if this.backdrop then
+        local _, class = UnitClass("player")
+        local color = RAID_CLASS_COLORS[class]
+        this.backdrop:SetBackdropBorderColor(color.r, color.g, color.b, 1)
+      end
+    end)
+    
+    HookScript(btn, "OnLeave", function()
+      UpdateQuickSlotItemRarity(this)
+    end)
+  
+    HookScript(btn, "OnShow", function() UpdateQuickSlotItemRarity(this) end)
+    HookScript(btn, "OnEvent", function() UpdateQuickSlotItemRarity(this) end)
+    btn.pfSkinned = true
+  end
+
+  local function SkinQuickSlots()
+    local qs = _G["OutfitterQuickSlots"]
+    if not qs then return end
+
+    StripTextures(qs)
+
+    for i = 1, 27 do
+      local back = _G["OutfitterQuickSlotsBack" .. i]
+      if back then back:SetTexture(nil) back:Hide() end
+    end
+
+    for _, suffix in ipairs({
+      "BackEnd", "BackEnd1", "BackEnd2",
+      "BackStart1", "BackStart2",
+    }) do
+      local f = _G["OutfitterQuickSlots" .. suffix]
+      if f then f:SetTexture(nil) f:Hide() end
+    end
+
+    for i = 1, 27 do
+      local item = _G["OutfitterQuickSlotsItem" .. i]
+      if item then StripTextures(item) end
+      local btn = _G["OutfitterQuickSlotsItem" .. i .. "Item1"]
+      if btn then
+        SkinQuickSlotItem(btn)
+        UpdateQuickSlotItemRarity(btn)
+      end
+    end
+
+    if not qs.pfborder then
+      local rawborder, border = GetBorderSize()
+      local er, eg, eb, ea = GetStringColor(pfUI_config.appearance.border.color)
+
+      local b = CreateFrame("Frame", nil, qs)
+      b:SetFrameLevel(max(qs:GetFrameLevel() - 1, 0))
+      b:SetPoint("TOPLEFT", qs, "TOPLEFT", -border, border)
+      b:SetPoint("BOTTOMRIGHT", qs, "BOTTOMRIGHT", border, -border)
+      b:SetBackdrop(pfUI.backdrop)
+      b:SetBackdropColor(0, 0, 0, .85)
+      b:SetBackdropBorderColor(er, eg, eb, ea)
+      qs.pfborder = b
+
+      local shadow = CreateFrame("Frame", nil, qs)
+      shadow:SetFrameLevel(max(qs:GetFrameLevel() - 2, 0))
+      shadow:SetPoint("TOPLEFT", b, "TOPLEFT", -3, 3)
+      shadow:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 3, -3)
+      shadow:SetBackdrop({ bgFile = pfUI.media["img:blank"], tile = true, tileSize = 1 })
+      shadow:SetBackdropColor(0, 0, 0, .5)
+      qs.pfborder_shadow = shadow
+    end
+  end
+
+  local origSetNumSlots = OutfitterQuickSlots_SetNumSlots
+  _G.OutfitterQuickSlots_SetNumSlots = function(pNumSlots)
+    origSetNumSlots(pNumSlots)
+    SkinQuickSlots()
+  end
+
+  HookScript(_G["OutfitterQuickSlots"], "OnShow", SkinQuickSlots)
+  SkinQuickSlots()
+end)
 end)
